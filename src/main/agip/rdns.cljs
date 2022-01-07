@@ -21,7 +21,28 @@
 
 (def dns-promises dns/promises)
 
-(def prom (dns-promises.reverse "192.74.137.5" "A"))
+(def prom (dns-promises.reverse "192.74.137.6" "CNAME"))
 (.then prom #(println (js->clj %)))
+
+(defn rev-dns
+  "do reverse dns lookup on vec of ips"
+  [ips]
+  (mapv dns-promises.reverse ips))
+
+(def ips (s/split-lines (slurp "ips.txt")))
+(take 3 ips)
+
+(def proms (rev-dns (take 15 ips)))
+(take 3 proms)
+(doseq [prom (take 15 proms)]
+  (.then prom #(println (js->clj %))))
+
+(first proms)
+(count proms)
+
+(.then (first proms) #(println (js->clj %)))
+
+
+
 
 
