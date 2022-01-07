@@ -19,8 +19,6 @@
 
 (def ips (s/split-lines (slurp "ips.txt")))
 
-#_(def proms (rev-dns (take 6 ips)))
-
 (defn proc-proms
   "print a sequence of dns reverse lookups of vec of ips"
   [ips]
@@ -30,8 +28,6 @@
         (.then #(js/console.log %))
         (.catch #(js/console.log "lkup err" %)))))
 
-#_(.then (first proms) #(println (js->clj %)))
-
 (defn -main
   [& args]
   (println "main" args))
@@ -39,11 +35,11 @@
 (comment
   (js/console.log "err" 2)
   (def prom (dns/promises.reverse "192.74.137.6" "CNAME"))
-  (.then prom #(println (js->clj %))) println
+  (.then prom #(println (js->clj %)))
   (.then (dns/promises.reverse "51.79.29.48" println))
+  (count ips)
   (proc-proms (take 5 ips))
   )
-
 
 (comment
   (println "hi" 5)
@@ -51,7 +47,7 @@
   (s/split-lines s)
   (dns/lookup "example.org"
               (fn [err add fam]
-                (println err add fam))))
+              (println err add fam))))
 
 
 
