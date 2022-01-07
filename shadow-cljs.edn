@@ -10,6 +10,6 @@
  :builds
  {:script
   {:target :node-script
-   :main agip.rdns/dumb
+   :main agip.rdns/-main
    :output-to "out/script/rdns.js"}
   }}
