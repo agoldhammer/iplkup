@@ -5,7 +5,7 @@
   "src/test"]
 
  :dependencies
- [org.clojure/cljs.core.async "1.5.648"]
+ []
 
  :builds
  {:script
