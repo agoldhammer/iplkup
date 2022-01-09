@@ -95,13 +95,19 @@
       (if item
         (recur (a/<! out-ch) (into acc item))
         #_(println "accum" acc)
-        (let [proms (js/Promise.allSettled (mapv (comp first rest) (filter #(= :promise (get % 0)) acc)))]
+        (let [proms (mapv (comp first rest) (filter #(= :promise (get % 0)) acc))
+              settled (js/Promise.allSettled proms)]
           (println "in process-ips let" proms)
-          (->
-           proms
-           (.then #(js/console.log "output" %))
-           (.catch #(js/console.log "error"))
-           (.finally #(println :finis)))))
+          (js/setTimeout #(println "waiting for result") 500)
+          (a/go (a/take! (a/timeout 2000) #(println "take2")))
+          (js/setTimeout
+           (fn []
+             (println "delayed output")
+             (->
+              settled
+              (.then #(js/console.log "output" %))
+              (.catch #(js/console.log "error"))
+              (.finally #(println :finis)))) 5000)))
       #_(let [result (js/Promise.all acc)]))
   ))
 
