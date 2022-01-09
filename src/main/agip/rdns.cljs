@@ -3,7 +3,7 @@
             ["dns" :as dns]
             [process :as p]
             [clojure.core.async :as a]
-            #_[cljs.core.async.interop :refer-macros [>!]]
+            [cljs.core.async.interop :refer-macros [<p!]]
             [clojure.string :as s]))
 
 (p/on "uncaughtException", (fn [err origin]
@@ -22,12 +22,37 @@
     (mapv #(dns/promises.reverse % "CNAME") ips))
 
 (defn ip->host
-  "reverse lkup ip asynchronously
-   return map {:ip ip :promise prom}
-   where prom should resolve to hostname"
+  "reverse lkup ip"
   [ip]
   (println "processing ip:" ip)
   (dns/promises.reverse ip "CNAME"))
+
+(comment
+  (dns/reverse "34.86.35.10" println)
+  (let [p (ip->host "172.182.1.25")]
+    (-> p
+        (.then println println)
+        (.catch println println)
+        (.finally #(println "finis"))))
+  ;;;
+  (a/take! (a/go
+             (try
+               (<p! (ip->host "172.182.1.25"))
+               (catch js/Error err (js/console.log (ex-cause err))))) println)
+
+  ;;;
+  (def p (js/Promise.all (mapv ip->host ["34.86.35.10" #_"172.182.1.25"])))
+  (-> p
+      (.then println)
+      (.catch println))
+  (dns/reverse "34.86.35.10" (fn [err hns]
+                               (if err
+                                 (println err)
+                                 (println hns))))
+  (dns/reverse "172.182.1.25" (fn [err hns]
+                                (if err
+                                  (println "error")
+                                  (println hns)))))
 
 (defn async-process-ip
   "pipeline function to revese lkup ip"
@@ -52,34 +77,37 @@
     (let [{:keys [ip promise]} item]
       (println "resolve-item" item)
       (println "resolve-item" ip promise)
-      (-> promise
-          (.then js/console.log)
-          (.catch js/console.log)
-          (.finally #(js/console.log "fin" ip))))))
+      #_(-> promise
+            (.then js/console.log)
+            (.catch js/console.log)
+            (.finally #(js/console.log "fin" ip)))
+      (try
+        (a/take! (<p! promise) println)
+        (catch js/Error err (js/console.log (ex-cause err)))))))
 
 (defn process-ips
   "process a vector of ips"
   [ips]
-  (let [out-ch (pipe-ips ips)
-        n (atom (count ips))]
-    (a/go-loop [item (a/<! out-ch)]
-      (println "process-ips loop" @n)
+  (let [out-ch (pipe-ips ips)]
+    (a/go-loop [item (a/<! out-ch)
+                acc []]
+      (println "process-ips loop")
       (if item
-        (do
-          (resolve-item item)
-          (swap! n dec)
-          (recur (a/<! out-ch)))
-        (a/>! exit-chan :done)))
-    ;; spin until exit signal
-    #_(while (nil? (a/poll! exit-chan))
-      (reduce + (range 1000)))
-    #_(while (not= @n 0)
-      (println "wait count" @n)
-      (js/setTimeout #(println "waiting" @n) 30000))))
+        (recur (a/<! out-ch) (into acc item))
+        #_(println "accum" acc)
+        (let [proms (js/Promise.allSettled (mapv (comp first rest) (filter #(= :promise (get % 0)) acc)))]
+          (println "in process-ips let" proms)
+          (->
+           proms
+           (.then #(js/console.log "output" %))
+           (.catch #(js/console.log "error"))
+           (.finally #(println :finis)))))
+      #_(let [result (js/Promise.all acc)]))
+  ))
 
 (defn process-file
- "process a file of ips"
- [fname]
+  "process a file of ips"
+  [fname]
   (let [ips (s/split-lines (slurp fname))]
     (println "processing file" fname "with" (count ips) "ips")
     (process-ips ips)))
@@ -91,7 +119,9 @@
 
 (comment
   (process-ips ["34.86.35.10" "52.41.81.117"])
-  (process-ips (take 4 (s/split-lines (slurp "ips.txt")))))
+(process-ips (take 5 (s/split-lines (slurp "ips.txt"))))
+
+  )
 
 (comment
   (js/console.log "err" 2)
@@ -103,6 +133,7 @@
   (def prom (dns/promises.reverse "192.74.137.6" "CNAME"))
   (.then prom #(println (js->clj %)))
   (.then (dns/promises.reverse "51.79.29.48" println))
+  #_(js/Promise.all)
   #_(let [c (process-ips (take 5 ips))]
       (a/go-loop [item (a/<! c)
                   acc []]
@@ -132,7 +163,7 @@
     (count ips)
     (ip->host "34.86.35.10")
     (println "wait 1")
-    (js/setTimeout #(a/go (println (a/<! c))) 1000)) )
+    (js/setTimeout #(a/go (println (a/<! c))) 1000)))
 
 
 
