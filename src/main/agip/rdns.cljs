@@ -1,15 +1,16 @@
 (ns agip.rdns
   (:require ["fs" :as fs]
             ["dns" :as dns]
-            [process :as p]
+            [process :as pr]
             [clojure.core.async :as a]
-            [cljs.core.async.interop :refer-macros [<p!]]
+            #_[cljs.core.async.interop :refer-macros [<p!]]
             [clojure.string :as s]))
 
-(p/on "uncaughtException", (fn [err origin]
+(pr/on "uncaughtException", (fn [err origin]
                              (println "Uncaught Exception" err origin)))
 
-(def exit-chan (a/chan 1))
+#_(def exit-chan (a/chan 1))
+(enable-console-print!)
 
 (defn slurp [file]
   (-> (fs/readFileSync file)
@@ -35,16 +36,19 @@
         (.catch println println)
         (.finally #(println "finis"))))
   ;;;
-  (a/take! (a/go
+  #_(a/take! (a/go
              (try
                (<p! (ip->host "172.182.1.25"))
                (catch js/Error err (js/console.log (ex-cause err))))) println)
 
   ;;;
-  (def p (js/Promise.all (mapv ip->host ["34.86.35.10" #_"172.182.1.25"])))
-  (-> p
-      (.then println)
-      (.catch println))
+  (comment
+    (def p (js/Promise.all (mapv ip->host ["34.86.35.10" #_"172.182.1.25"])))
+
+    (-> p
+        (.then println)
+        (.catch println))
+    )
   (dns/reverse "34.86.35.10" (fn [err hns]
                                (if err
                                  (println err)
@@ -70,7 +74,7 @@
     (a/pipeline-async 8 out-ch async-process-ip (a/to-chan! ips))
     out-ch))
 
-(defn resolve-item
+#_(defn resolve-item
   "resolve hostname from promise"
   [item]
   (a/go
@@ -95,21 +99,16 @@
       (if item
         (recur (a/<! out-ch) (into acc item))
         #_(println "accum" acc)
-        (let [proms (mapv (comp first rest) (filter #(= :promise (get % 0)) acc))
+        (let [ips (mapv (comp first rest) (filter #(= :ip (get % 0)) acc))
+              proms (mapv (comp first rest) (filter #(= :promise (get % 0)) acc))
               settled (js/Promise.allSettled proms)]
-          (println "in process-ips let" proms)
-          (js/setTimeout #(println "waiting for result") 500)
-          (a/go (a/take! (a/timeout 2000) #(println "take2")))
-          (js/setTimeout
-           (fn []
-             (println "delayed output")
-             (->
-              settled
-              (.then #(js/console.log "output" %))
-              (.catch #(js/console.log "error"))
-              (.finally #(println :finis)))) 5000)))
-      #_(let [result (js/Promise.all acc)]))
-  ))
+          (println "in process-ips: nproms" (count proms))
+          (println "ips" ips)
+          (->
+           settled
+           (.then #(js/console.log "output" %))
+           (.catch #(js/console.log "error"))
+           (.finally #(println :finis))))))))
 
 (defn process-file
   "process a file of ips"
@@ -120,11 +119,17 @@
 
 (defn -main
   [& args]
+  (pr/on "exit" (fn [code] (js/console.log "exiting" code)))
+  (println "Welcome" args)
   (process-file "ips.txt")
-  (println "main" args))
+  (js/setTimeout #(pr/exit 0) 1000)
+  #_(println "main" args))
 
 (comment
-  (process-ips ["34.86.35.10" "52.41.81.117"])
+  (do
+    (process-ips ["34.86.35.10" "52.41.81.117"])
+    (pr/on "exit" (fn [code] (js/console.log "exiting" code))))
+  (-main "hi")
 (process-ips (take 5 (s/split-lines (slurp "ips.txt"))))
 
   )
@@ -139,18 +144,7 @@
   (def prom (dns/promises.reverse "192.74.137.6" "CNAME"))
   (.then prom #(println (js->clj %)))
   (.then (dns/promises.reverse "51.79.29.48" println))
-  #_(js/Promise.all)
-  #_(let [c (process-ips (take 5 ips))]
-      (a/go-loop [item (a/<! c)
-                  acc []]
-        (if item
-          (do
-            (println "loop check" item)
-            (let [{:keys [ip promise]} item
-                  host (resolve-item promise)
-                  _ (println "host return" host)]
-              (recur (a/<! c) (into acc {:ip ip :host host}))))
-          (println acc)))))
+  )
 
 (comment
   (def p (dns/promises.reverse "34.86.35.10" "CNAME"))
@@ -160,7 +154,9 @@
   (s/split-lines s)
   (dns/lookup "example.org"
               (fn [err add fam]
-                (println err add fam))))
+                (println err add fam)))
+  (js/setTimeout #(println "hi 2") 2000))
+
 
 (comment
   (let
