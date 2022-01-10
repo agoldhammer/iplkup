@@ -94,7 +94,7 @@
 
 
 (defn process-ips
-  "process a vector of ips"
+  "do reverse dns lookups on vector of ips"
   [ips]
   (let [out-ch (pipe-ips ips)
         host-chan (make-host-channel)]
@@ -110,7 +110,7 @@
           (a/>! host-chan [ips settled]))))))
 
 (defn process-file
-  "process a file of ips"
+  "do reverse dns lookups on a file of ips"
   [fname]
   (let [ips (s/split-lines (slurp fname))]
     (println "processing file" fname "with" (count ips) "ips")
@@ -119,10 +119,12 @@
 (defn -main
   [& args]
   (pr/on "exit" (fn [code] (js/console.log "exiting" code)))
+  (dns/setServers #js ["8.8.8.8"])
+;; use Google name server; otherwise super slow on WSL2
+  #_(let [fname (first args) :or "ips.txt"])
   (println "Welcome" args)
   (process-file "ips.txt")
-  (js/setTimeout #(pr/exit 0) 2000)
-  #_(println "main" args))
+  (js/setTimeout #(pr/exit 0) 2500))
 
 (comment
   (process-ips ["34.86.35.10" "52.41.81.117"])
