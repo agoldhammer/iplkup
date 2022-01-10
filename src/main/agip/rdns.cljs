@@ -65,6 +65,14 @@
     (a/pipeline-async 8 out-ch async-process-ip (a/to-chan! ips))
     out-ch))
 
+(defn get-hostnames
+  "process resolution of lookup promises"
+  [hostresolutions]
+  (doseq [hostres hostresolutions]
+    (if (= hostres.status "fulfilled")
+      (println hostres.value)
+      (println "N/A"))))
+
 (defn make-host-channel
   "create and return channel to receive outcome of host lookups"
   []
@@ -76,7 +84,8 @@
           #_(println settled)
           (->
            settled
-           (.then #(js/console.log "output" %))
+           #_(.then #(js/console.log "output" %))
+           (.then #(get-hostnames %))
            (.catch #(js/console.log "error"))
            (.finally #(println :finis))))
         
