@@ -75,9 +75,20 @@
   (doseq [item zipped-ips-hosts]
     (println item)))
 
+(defn setup-output
+  "prepare to receive output zipmap on exit-chan"
+  []
+  (a/take! exit-chan #(print-zipped-ips-hosts %)))
+
+#_(defn exit-ok
+  "exit function"
+  [msg]
+  (println "Exiting" msg))
+
 (defn process-ips
   "do reverse dns lookups on vector of ips"
   [ips]
+  (setup-output)
   (let [out-ch (pipe-ips ips)
         host-chan (make-host-channel)
         #_#_can-exit? (atom nil)]
@@ -91,7 +102,8 @@
               settled (js/Promise.allSettled proms)]
           #_(println "in process-ips: nproms" (count proms))
           (a/>! host-chan [ips settled]))))
-    (a/take! exit-chan #(print-zipped-ips-hosts %)#_#(reset! can-exit? true) #_false)
+    #_(js/setTimeout #(exit-ok "from process ips") 3500)
+    #_(a/take! exit-chan #(print-zipped-ips-hosts %)#_#(reset! can-exit? true) #_false)
     #_(println "exiting process-ips--flag: " @can-exit?)
     #_(loop [flag @can-exit?]
         (if (nil? flag)
