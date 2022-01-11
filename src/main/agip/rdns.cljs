@@ -9,45 +9,18 @@
 (pr/on "uncaughtException", (fn [err origin]
                              (println "Uncaught Exception" err origin)))
 
-(def exit-chan (a/chan 1))
+(def exit-chan (a/chan))
 (enable-console-print!)
-
-;; from David Nolen gist
-(defn timeout [ms]
-  (let [c (a/chan)]
-    (js/setTimeout (fn [] (a/close! c)) ms)
-    c))
-
-(comment
-  (a/go
-    (a/<! (timeout 1000))
-    (println "Hello")
-    (a/<! (timeout 1000))
-    (println "async")
-    (a/<! (timeout 1000))
-    (println "world!"))
-  )
 
 (defn slurp [file]
   (-> (fs/readFileSync file)
       (.toString)))
-
 
 (defn ip->host
   "reverse lkup ip"
   [ip]
   #_(println "processing ip:" ip)
   (dns/promises.reverse ip "CNAME"))
-
-(comment
-  (dns/reverse "34.86.35.10" println)
-  (let [p (ip->host "172.182.1.25")]
-    (-> p
-        (.then println println)
-        (.catch println println)
-        (.finally #(println "finis"))))
-  
-  )
 
 (defn async-process-ip
   "pipeline function to revese lkup ip"
@@ -71,16 +44,12 @@
   (let [fix-hostname (fn [hostres]
                        (if (= hostres.status "fulfilled")
                          hostres.value
-                         "N/A"))]
-    (doseq [item
-            (zipmap ips
-                    (into [] (map fix-hostname hostresolutions)))]
-      (println item)))
-  (a/go (a/>! exit-chan :zip-done))
-  #_(doseq [hostres hostresolutions]
-    (if (= hostres.status "fulfilled")
-      (println hostres.value)
-      (println "N/A"))))
+                         "N/A"))
+        zipped-ips-hosts (zipmap ips
+                                 (into [] (map fix-hostname hostresolutions)))]
+    #_(doseq [item zipped-ips-hosts]
+      (println item))
+    (a/put! exit-chan zipped-ips-hosts #(println "sent zipped"))))
 
 (defn make-host-channel
   "create and return channel to receive outcome of host lookups"
@@ -101,13 +70,17 @@
         (recur (a/<! host-chan))))
     host-chan))
 
+(defn print-zipped-ips-hosts
+  [zipped-ips-hosts]
+  (doseq [item zipped-ips-hosts]
+    (println item)))
 
 (defn process-ips
   "do reverse dns lookups on vector of ips"
   [ips]
   (let [out-ch (pipe-ips ips)
         host-chan (make-host-channel)
-        can-exit? (atom nil)]
+        #_#_can-exit? (atom nil)]
     (a/go-loop [item (a/<! out-ch)
                 acc []]
       #_(println "process-ips loop")
@@ -118,12 +91,8 @@
               settled (js/Promise.allSettled proms)]
           #_(println "in process-ips: nproms" (count proms))
           (a/>! host-chan [ips settled]))))
-    (a/take! exit-chan #(reset! can-exit? true))
-    
-    ;; wait until can-exit? flag is flipped by msg on exit-chan
-    #_(a/go (a/<! (timeout 2000))
-            (println "waiting to exit"))
-    (println "exiting process-ips--flag: " @can-exit?)
+    (a/take! exit-chan #(print-zipped-ips-hosts %)#_#(reset! can-exit? true) #_false)
+    #_(println "exiting process-ips--flag: " @can-exit?)
     #_(loop [flag @can-exit?]
         (if (nil? flag)
           (recur @can-exit?)
@@ -149,13 +118,24 @@
 
 (comment
   (process-ips ["34.86.35.10" "52.41.81.117"])
-  (-main "hi")
-  (a/take! exit-chan println)
-  (a/put! exit-chan :exit-chan)
+  #_(-main "hi")
   (process-ips (take 5 (s/split-lines (slurp "ips.txt"))))
-  (def ps (js/Promise.resolve (#(js/setTimeout (fn [] {:ans 42}))) 1000))
-  (.then ps println)
   )
+
+;; from David Nolen gist
+(defn timeout [ms]
+  (let [c (a/chan)]
+    (js/setTimeout (fn [] (a/close! c)) ms)
+    c))
+
+(comment
+  (a/go
+    (a/<! (timeout 1000))
+    (println "Hello")
+    (a/<! (timeout 1000))
+    (println "async")
+    (a/<! (timeout 1000))
+    (println "world!")))
 
 
 
