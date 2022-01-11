@@ -9,7 +9,7 @@
 (pr/on "uncaughtException", (fn [err origin]
                              (println "Uncaught Exception" err origin)))
 
-#_(def exit-chan (a/chan 1))
+(def exit-chan (a/chan 1))
 (enable-console-print!)
 
 ;; from David Nolen gist
@@ -65,10 +65,19 @@
     (a/pipeline-async 8 out-ch async-process-ip (a/to-chan! ips))
     out-ch))
 
-(defn get-hostnames
-  "process resolution of lookup promises"
-  [hostresolutions]
-  (doseq [hostres hostresolutions]
+(defn zip-ips-to-hostnames
+  "zipmap ips to resolved hostnames"
+  [ips hostresolutions]
+  (let [fix-hostname (fn [hostres]
+                       (if (= hostres.status "fulfilled")
+                         hostres.value
+                         "N/A"))]
+    (doseq [item
+            (zipmap ips
+                    (into [] (map fix-hostname hostresolutions)))]
+      (println item)))
+  (a/go (a/>! exit-chan :zip-done))
+  #_(doseq [hostres hostresolutions]
     (if (= hostres.status "fulfilled")
       (println hostres.value)
       (println "N/A"))))
@@ -85,7 +94,7 @@
           (->
            settled
            #_(.then #(js/console.log "output" %))
-           (.then #(get-hostnames %))
+           (.then #(zip-ips-to-hostnames ips %))
            (.catch #(js/console.log "error"))
            (.finally #(println :finis))))
         
@@ -124,6 +133,8 @@
   #_(let [fname (first args) :or "ips.txt"])
   (println "Welcome" args)
   (process-file "ips.txt")
+  (a/take! exit-chan #(println "exit chan" %))
+  #_(pr/exit 0)
   (js/setTimeout #(pr/exit 0) 2500))
 
 (comment
