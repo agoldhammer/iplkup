@@ -106,7 +106,8 @@
   "do reverse dns lookups on vector of ips"
   [ips]
   (let [out-ch (pipe-ips ips)
-        host-chan (make-host-channel)]
+        host-chan (make-host-channel)
+        can-exit? (atom nil)]
     (a/go-loop [item (a/<! out-ch)
                 acc []]
       #_(println "process-ips loop")
@@ -116,7 +117,17 @@
               proms (mapv (comp first rest) (filter #(= :promise (get % 0)) acc))
               settled (js/Promise.allSettled proms)]
           #_(println "in process-ips: nproms" (count proms))
-          (a/>! host-chan [ips settled]))))))
+          (a/>! host-chan [ips settled]))))
+    (a/take! exit-chan #(reset! can-exit? true))
+    
+    ;; wait until can-exit? flag is flipped by msg on exit-chan
+    #_(a/go (a/<! (timeout 2000))
+            (println "waiting to exit"))
+    (println "exiting process-ips--flag: " @can-exit?)
+    #_(loop [flag @can-exit?]
+        (if (nil? flag)
+          (recur @can-exit?)
+          (println "can exit now")))))
 
 (defn process-file
   "do reverse dns lookups on a file of ips"
@@ -133,13 +144,14 @@
   #_(let [fname (first args) :or "ips.txt"])
   (println "Welcome" args)
   (process-file "ips.txt")
-  (a/take! exit-chan #(println "exit chan" %))
   #_(pr/exit 0)
   (js/setTimeout #(pr/exit 0) 2500))
 
 (comment
   (process-ips ["34.86.35.10" "52.41.81.117"])
   (-main "hi")
+  (a/take! exit-chan println)
+  (a/put! exit-chan :exit-chan)
   (process-ips (take 5 (s/split-lines (slurp "ips.txt"))))
   (def ps (js/Promise.resolve (#(js/setTimeout (fn [] {:ans 42}))) 1000))
   (.then ps println)
