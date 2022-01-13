@@ -7,23 +7,24 @@
             [clojure.string :as s]))
 
 (pr/on "uncaughtException", (fn [err origin]
-                             (println "Uncaught Exception" err origin)))
+                              (println "Uncaught Exception" err origin)))
 
 (def print-chan (a/chan 256))
+(def done-chan (a/chan))
 (enable-console-print!)
 
 (defn slurp [file]
   (-> (fs/readFileSync file)
       (.toString)))
 
-(defn async-process-ip
+(defn- async-process-ip
   "pipeline function to revese lkup ip"
   [ip result-ch]
   (a/go [ip result-ch]
         (a/>! result-ch {:ip ip :promise (dns/promises.reverse ip "CNAME")})
         (a/close! result-ch)))
 
-(defn pipe-ips
+(defn- pipe-ips
   "create outch and put seq of dns reverse lookups of vec of ips on outch
    return the outch"
   [ips]
@@ -31,7 +32,7 @@
     (a/pipeline-async 8 out-ch async-process-ip (a/to-chan! ips))
     out-ch))
 
-(defn zip-ips-to-hostnames
+(defn- zip-ips-to-hostnames
   "zipmap ips to resolved hostnames"
   [ips hostresolutions]
   (let [fix-hostname (fn [hostres]
@@ -42,7 +43,7 @@
                                  (into [] (map fix-hostname hostresolutions)))]
     (a/put! print-chan zipped-ips-hosts #(println "sent zipped"))))
 
-(defn make-host-channel
+(defn- make-host-channel
   "create and return channel to receive outcome of host lookups"
   []
   (let [host-chan (a/chan 1)]
@@ -55,17 +56,19 @@
            (.then #(zip-ips-to-hostnames ips %))
            (.catch #(js/console.log "error"))
            (.finally #(println :finis))))
-        
+
         (recur (a/<! host-chan))))
     host-chan))
 
 (defn process-ips
   "do reverse dns lookups on vector of ips"
   [ips]
+  #_(println "process ips called with" ips)
   (let [out-ch (pipe-ips ips)
         host-chan (make-host-channel)]
-    (a/go (doseq [item (a/<! print-chan)]
-            (println "**" item)))
+    (a/go (do (doseq [item (a/<! print-chan)]
+                (println "**" item))
+              (a/put! done-chan :done)))
     (a/go-loop [item (a/<! out-ch)
                 acc []]
       (if item
@@ -89,13 +92,21 @@
 ;; use Google name server; otherwise super slow on WSL2
   (println "Welcome" args)
   (process-file "ips.txt")
-  (js/setTimeout #(pr/exit 0) 2500))
+  (a/take! done-chan #((do (println "lookups done")
+                           (pr/exit 0))))
+  #_(pr/exit 0)
+  #_(js/setTimeout #(pr/exit 0) 2500))
+
+(defn wait-for-done
+  "call fn f and wait until done signal received"
+  [f & args]
+  (apply f args)
+  (a/take! done-chan #(println ":done sig rcvd")))
 
 (comment
-  (process-ips ["34.86.35.10" "52.41.81.117"])
+  (wait-for-done process-ips ["34.86.35.10" "52.41.81.117"])
   #_(-main "hi")
-  (process-ips (take 5 (s/split-lines (slurp "ips.txt"))))
-  )
+  (process-ips (take 5 (s/split-lines (slurp "ips.txt")))))
 
 ;; from David Nolen gist
 (defn timeout [ms]
@@ -104,6 +115,7 @@
     c))
 
 (comment
+  (apply hash-map (concat [:a 1] [:b 2] [:c 3]))
   (a/go
     (a/<! (timeout 1000))
     (println "Hello")
