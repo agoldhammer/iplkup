@@ -66,9 +66,13 @@
   #_(println "process ips called with" ips)
   (let [out-ch (pipe-ips ips)
         host-chan (make-host-channel)]
+    ;; print the vec of resolved [[ip1 "hostname1"] [ip2 "hostname2"] ... from the print channel]
     (a/go (do (doseq [item (a/<! print-chan)]
                 (println "**" item))
               (a/put! done-chan :done)))
+    ;; accumulate [:ip ip :promise prom] items from the out-ch of the ip pipeline
+    ;; resolve the promises and restructure as [[ip1 ip2 ...] ["hostname1" "hostname2" ...]]
+    ;; send this to host-chan
     (a/go-loop [item (a/<! out-ch)
                 acc []]
       (if item
@@ -115,6 +119,7 @@
     c))
 
 (comment
+  (js/setTimeout #(println "Blimey") 12)
   (apply hash-map (concat [:a 1] [:b 2] [:c 3]))
   (a/go
     (a/<! (timeout 1000))
