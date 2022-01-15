@@ -1,6 +1,7 @@
 (ns agip.logparse
   (:require ["fs" :as fs]
-            [clojure.string :as s]))
+            [clojure.string :as s]
+            [tick.core :as t]))
 
 (defn read-log
   "read log file"
@@ -27,4 +28,12 @@
     (mapv parse-line lines)))
 
 (comment
-  (parse-log "testdata/small.log"))
+  (parse-log "testdata/small.log")
+  (->
+   (t/instant "1999-12-31T00:59:59Z")
+   (t/in "UTC")
+   #_(t/date))
+  (t/zoned-date-time (t/now))
+  ;; no good (t/instant "26-02-2021:01:24:07")
+  (t/formatter)
+  (t/month 2))

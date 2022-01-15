@@ -5,11 +5,10 @@
   "src/test"]
 
  :dependencies
- []
+ [[tick "0.5.0-RC5"]]
 
  :builds
  {:script
   {:target :node-script
    :main agip.rdns/-main
-   :output-to "out/script/rdns.js"}
-  }}
+   :output-to "out/script/rdns.js"}}}
