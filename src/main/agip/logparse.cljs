@@ -1,7 +1,23 @@
 (ns agip.logparse
   (:require ["fs" :as fs]
+            [cljs.reader :as reader]
             [clojure.string :as s]
             [agip.dateparser :as dp]))
+
+(defonce config-file "config.edn")
+(defonce geo-api-key (atom nil))
+
+(defn read-config
+  "read the config file and set api key"
+  []
+  (reset! geo-api-key
+        (-> (fs/readFileSync config-file)
+            (.toString)
+            (reader/read-string)
+            (:API-KEY))))
+
+(comment (read-config)
+         (println @geo-api-key))
 
 (defn read-log
   "read log file"
@@ -28,6 +44,4 @@
     (mapv parse-line lines)))
 
 (comment
-  (parse-log "testdata/small.log")
-
-  )
+  (parse-log "testdata/small.log"))
