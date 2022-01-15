@@ -1,3 +1,4 @@
+#_:clj-kondo/ignore
 (ns test.logparse-test
   (:require [cljs.test :refer [deftest testing is run-tests]]
             [agip.logparse :as lp]))
