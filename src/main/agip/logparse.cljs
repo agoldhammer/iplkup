@@ -1,7 +1,7 @@
 (ns agip.logparse
   (:require ["fs" :as fs]
             [clojure.string :as s]
-            [tick.core :as t]))
+            [agip.dateparser :as dp]))
 
 (defn read-log
   "read log file"
@@ -18,7 +18,7 @@
         parsed (re-find parse-re line)]
     {:entry (parsed 0)
      :ip (parsed 1)
-     :date (parsed 2)
+     :date (dp/datestr->zulu (parsed 2))
      :req (parsed 3)}))
 
 (defn parse-log
@@ -29,11 +29,5 @@
 
 (comment
   (parse-log "testdata/small.log")
-  (->
-   (t/instant "1999-12-31T00:59:59Z")
-   (t/in "UTC")
-   #_(t/date))
-  (t/zoned-date-time (t/now))
-  ;; no good (t/instant "26-02-2021:01:24:07")
-  (t/formatter)
-  (t/month 2))
+
+  )
