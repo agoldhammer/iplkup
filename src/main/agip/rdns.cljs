@@ -89,7 +89,7 @@
     (println "processing file" fname "with" (count ips) "ips")
     (process-ips ips)))
 
-(defn -main
+(defn -main2
   [& args]
   (pr/on "exit" (fn [code] (js/console.log "exiting" code)))
   (dns/setServers #js ["8.8.8.8"])
@@ -119,6 +119,7 @@
     c))
 
 (comment
+  (-main2 "Art")
   (js/setTimeout #(println "Blimey") 12)
   (apply hash-map (concat [:a 1] [:b 2] [:c 3]))
   (a/go

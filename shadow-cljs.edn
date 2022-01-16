@@ -5,10 +5,19 @@
   "src/test"]
 
  :dependencies
- [[tick "0.5.0-RC5"]]
+ [[tick "0.5.0-RC5"]
+  [cljs-http "0.1.46"]]
 
  :builds
+ 
  {:script
   {:target :node-script
-   :main agip.rdns/-main
-   :output-to "out/script/rdns.js"}}}
+   :main agip.logparse/-main
+   :output-to "out/script/logrdr.js"}}
+ 
+ #_{:dev
+  {:target :node
+   :main agip.logparser/-main
+   :output-to "out/dev/logrdr.js"}}
+ 
+ }

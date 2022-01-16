@@ -1,8 +1,18 @@
 (ns agip.ipgeo
-  (:require ["https" :as https]
+  (:require #_["https" :as https]
             ["fs" :as fs]
+            ["xmlhttprequest" :refer [XMLHttpRequest]]
+            #_[cljs.nodejs :as nodejs]
+            [cljs-http.client :as http]
             [cljs.reader :as reader]
-            [clojure.core.async :as a]))
+            [cljs.core.async :as a]))
+
+;; for this hack
+;; see http://www.jimlynchcodes.com/blog/solved-xmlhttprequest-is-not-defined-with-clojurescript-coreasync
+
+#_(set! js/XMLHttpRequest (nodejs/require "xhr2"))
+;; this eliminates the annoying message from xhr2, which is no longer required
+(set! js/XMLHttpRequest XMLHttpRequest)
 
 (def base-url "https://api.ipgeolocation.io/ipgeo")
 
@@ -12,7 +22,7 @@
 (defn read-config
   "read the config file and set api key"
   []
-  (:pre (not (nil? @geo-api-key)))
+  
   (reset! geo-api-key
           (-> (fs/readFileSync config-file)
               (.toString)
@@ -22,28 +32,23 @@
 (comment (read-config)
          (println @geo-api-key))
 
-(defn response-fn
-  [resp chan]
-  (println "rf" resp)
-  (a/put! chan resp))
-
 (defn get-site-data
-  "fetch site data for ip, place in pipeline"
-  [ip result-chan]
-  (let [url (str base-url "?apiKey=" @geo-api-key "&ip=" ip "&fields=geo")
-        _ (println "the url is" url)]
-    (https/get url (fn [resp] (response-fn resp result-chan)))
-    #_(a/go
-        (a/>! result-chan {:ip ip :site-data (https/get url)})
-   ;; will need this for decoding
-   ;; {:site-data (dissoc (ch/parse-string (:body resp) true) :ip)}
-     ;; TODO removing below line produces only first log entry in seq, why??
-        (a/close! result-chan))))
+  "fetch site data for ip, place in suppliedc hannel"
+  [ip outch]
+  {:pre @geo-api-key}
+  (let [url (str base-url "?apiKey=" @geo-api-key "&ip=" ip "&fields=geo")]
+    (http/get url {:channel outch})))
 
-#_(ns agip.ipgeo
-    (:require ["https" :as https]))
+(defn resp->geodata
+  "transform ipgeo response as needed"
+  [resp]
+  (if (= (:status resp) 200)
+    {:geodata (:body resp)}
+    {:geodata "N/A"}))
 
-(comment 
-  (let [mychan (a/chan 1)]
-    (get-site-data "8.8.8.8" mychan)
-    (a/go (println (a/<! mychan)))))
+(comment
+  (def mychan (a/chan 1))
+  (get-site-data "8.8.8.8" mychan)
+  (a/take! mychan #(println "done" (resp->geodata %)))
+)
+

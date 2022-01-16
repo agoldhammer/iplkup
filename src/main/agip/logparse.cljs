@@ -30,5 +30,10 @@
   (let [lines (read-log fname)]
     (mapv parse-line lines)))
 
+#_:clj-kondo/ignore
+(defn -main
+  [& args]
+  )
+
 (comment
   (parse-log "testdata/small.log"))
