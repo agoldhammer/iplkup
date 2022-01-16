@@ -7,7 +7,11 @@
             [cljs.reader :as reader]
             [cljs.core.async :as a]))
 
+<<<<<<< HEAD
 ;; for this hack, needed to make cljs-http work properly
+=======
+;; for this hack
+>>>>>>> dfd5b86aa183b5c1b5a979e5d62e83d9a98df5f6
 ;; see http://www.jimlynchcodes.com/blog/solved-xmlhttprequest-is-not-defined-with-clojurescript-coreasync
 
 #_(set! js/XMLHttpRequest (nodejs/require "xhr2"))
