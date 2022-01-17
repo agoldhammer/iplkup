@@ -7,16 +7,16 @@
             [cljs.reader :as reader]
             [cljs.core.async :as a]))
 
-<<<<<<< HEAD
 ;; for this hack, needed to make cljs-http work properly
-=======
-;; for this hack
->>>>>>> dfd5b86aa183b5c1b5a979e5d62e83d9a98df5f6
 ;; see http://www.jimlynchcodes.com/blog/solved-xmlhttprequest-is-not-defined-with-clojurescript-coreasync
 
 #_(set! js/XMLHttpRequest (nodejs/require "xhr2"))
 ;; this eliminates the annoying message from xhr2, which is no longer required
 (set! js/XMLHttpRequest XMLHttpRequest)
+
+;; see https://quanttype.net/posts/2018-10-18-how-i-use-tap.html
+(def debug-a (atom nil))
+(add-tap #(reset! debug-a %))
 
 (def base-url "https://api.ipgeolocation.io/ipgeo")
 
@@ -39,7 +39,7 @@
 (defn get-site-data
   "fetch site data for ip, place in suppliedc hannel"
   [ip outch]
-  {:pre @geo-api-key}
+  {:pre [(not (nil? @geo-api-key))]}
   (let [url (str base-url "?apiKey=" @geo-api-key "&ip=" ip "&fields=geo")]
     (http/get url {:channel outch})))
 
@@ -54,5 +54,7 @@
   (def mychan (a/chan 1))
   (get-site-data "8.8.8.8" mychan)
   (a/take! mychan #(println "done" (resp->geodata %)))
+  (a/take! mychan #(tap> (resp->geodata %)))
+  @debug-a
 )
 
