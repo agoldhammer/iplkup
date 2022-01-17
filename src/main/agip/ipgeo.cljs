@@ -46,9 +46,29 @@
 (defn resp->geodata
   "transform ipgeo response as needed"
   [resp]
+  #_(tap> (str "r->g" resp))
   (if (= (:status resp) 200)
     {:geodata (:body resp)}
     {:geodata "N/A"}))
+
+(defn ips->raw-site-data-chan
+  "pipeline a vector of ips to a channel containing a vector of site-data;
+   return site-data-chan"
+  [ips]
+  (let [raw-site-data-chan (a/chan 1024)]
+    (a/pipeline-async 1 raw-site-data-chan get-site-data (a/to-chan! ips))
+    raw-site-data-chan))
+
+(defn raw-site-data-chan->site-data-chan
+  "transform raw response from ipgeo lookup to clean response chan
+   using pipeline with transducer, return site-data-chan"
+  [raw-site-data-chan]
+  (let [site-data-chan (a/chan 1024)]
+    (a/go-loop [raw-response (a/<! raw-site-data-chan)]
+               (when raw-response
+                 (a/>! site-data-chan (resp->geodata raw-response))
+                 (recur (a/<! raw-site-data-chan))))
+    site-data-chan))
 
 (comment
   (def mychan (a/chan 1))
@@ -56,5 +76,11 @@
   (a/take! mychan #(println "done" (resp->geodata %)))
   (a/take! mychan #(tap> (resp->geodata %)))
   @debug-a
+  ;;;
+  (def raw-site-data-chan (ips->raw-site-data-chan ["8.8.8.8" "9.8.8.8"]))
+  (a/take! raw-site-data-chan println)
+  (def site-data-chan (raw-site-data-chan->site-data-chan raw-site-data-chan))
+  (a/take! site-data-chan println)
+
 )
 
