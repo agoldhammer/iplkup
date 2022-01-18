@@ -3,6 +3,7 @@
             #_[cljs.reader :as reader]
             [clojure.string :as s]
             [agip.dateparser :as dp]
+            [agip.output :as out]
             [agip.utils :as u]))
 
 
@@ -56,4 +57,5 @@
   u/config
   (parse-log "testdata/small.log")
   (reduce-log "testdata/small.log")
+  (out/pp-reduced-log (reduce-log "testdata/newer.log"))
   )
