@@ -26,4 +26,6 @@ workspace.code-workspace
 .clj-kondo/
 ips.txt
 testdata/
+config.edn
+
 
