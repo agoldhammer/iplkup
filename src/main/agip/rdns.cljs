@@ -1,19 +1,18 @@
 (ns agip.rdns
-  (:require ["fs" :as fs]
+  (:require #_["fs" :as fs]
             ["dns" :as dns]
             [process :as pr]
             [clojure.core.async :as a]
             #_[cljs.core.async.interop :refer-macros [<p!]]
-            [clojure.string :as s]))
+            #_[clojure.string :as s]))
 
 (pr/on "uncaughtException", (fn [err origin]
                               (println "Uncaught Exception" err origin)))
 
 (def print-chan (a/chan 256))
 (def done-chan (a/chan))
-(enable-console-print!)
 
-(defn slurp [file]
+#_(defn slurp [file]
   (-> (fs/readFileSync file)
       (.toString)))
 
@@ -82,7 +81,7 @@
               settled (js/Promise.allSettled proms)]
           (a/>! host-chan [ips settled]))))))
 
-(defn process-file
+#_(defn process-file
   "do reverse dns lookups on a file of ips"
   [fname]
   (let [ips (s/split-lines (slurp fname))]
@@ -95,7 +94,7 @@
   (dns/setServers #js ["8.8.8.8"])
 ;; use Google name server; otherwise super slow on WSL2
   (println "Welcome" args)
-  (process-file "ips.txt")
+  #_(process-file "ips.txt")
   (a/take! done-chan #((do (println "lookups done")
                            (pr/exit 0))))
   #_(pr/exit 0)
@@ -110,7 +109,7 @@
 (comment
   (wait-for-done process-ips ["34.86.35.10" "52.41.81.117"])
   #_(-main "hi")
-  (process-ips (take 5 (s/split-lines (slurp "ips.txt")))))
+  #_(process-ips (take 5 (s/split-lines (slurp "ips.txt")))))
 
 ;; from David Nolen gist
 (defn timeout [ms]

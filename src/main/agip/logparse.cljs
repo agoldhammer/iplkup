@@ -1,15 +1,12 @@
 (ns agip.logparse
-  (:require #_["fs" :as fs]
-            #_[cljs.reader :as reader]
-            [process :as pr]
+  (:require #_[process :as pr]
             [cljs.core.async :as a]
             [clojure.string :as s]
             [agip.dateparser :as dp]
             [agip.output :as out]
             [agip.utils :as u]
+            [agip.rdns :as rdns]
             [agip.ipgeo :as ipg]))
-
-
 
 (defn read-log
   "read log file"
@@ -64,9 +61,9 @@
   (let [geodata (:geodata item)
         ip (:ip geodata)
         stripped-geo (dissoc geodata :ip)]
-    (println "combinegeo: " geodata)
-    (println "combineip: " ip)
-    (println "--")
+    #_(println "combinegeo: " geodata)
+    #_(println "combineip: " ip)
+    #_(println "--")
     (assoc-in log [ip :geodata] stripped-geo)))
 
 (defn augment-log-geo
@@ -83,11 +80,9 @@
     (a/go-loop [item (a/<! geochan)
                 augmented-log reduced-log]
       #_(tap> {:aug-item item})
-      (println {:aug-item item})
+      #_(println {:aug-item item})
       (if (nil? item)
-        (do
-          (println "exiting alg")
-          (a/put! outchan augmented-log #(println "alg done")))
+        (a/put! outchan augmented-log #(println "alg done"))
         (recur (a/<! geochan)
                (combine-geo item augmented-log))))
     outchan))
@@ -97,10 +92,10 @@
   [& args]
   (u/init-app)
   (u/reset-debug)
-  (a/take! (augment-log-geo (reduce-log "testdata/small.log")) out/pp-log)
+  (a/take! (augment-log-geo (reduce-log (first args))) out/pp-log)
   #_(println @u/debug-a)
-  (js/setTimeout #(pr/exit 0) 4500)
-  )
+  #_(js/setTimeout #(pr/exit 0) 4500)
+  #_(pr/exit 0))
 
 (comment
   u/config
@@ -111,12 +106,8 @@
   (out/pp-log small-reduced)
   (def res (augment-log-geo (reduce-log "testdata/small.log")))
   res
-  (out/pp-log (augment-log-geo (reduce-log "testdata/small.log")))
+  (a/take! (augment-log-geo (reduce-log "testdata/small.log")) out/pp-log)
   @u/debug-a
   (out/pp-log (reduce-log "testdata/newer.log"))
-
-  (def geo {:geodata {:country_code2 "US", :ip "54.245.183.198", :city "Durham", :longitude "-78.86284", :zipcode "27709", :country_name "United States", :country_code3 "USA", :latitude "35.90841", :state_prov "North Carolina", :district "Research Triangle Park"}}
-)
-  (println (get-in (combine-geo geo small-reduced) ["54.245.183.198" :geodata]))
-
+  (rdns/process-ips ["8.8.8.8"])
   )
