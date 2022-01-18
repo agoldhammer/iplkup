@@ -11,8 +11,13 @@
     (doseq [event events]
       (println "  **")
       (println (str "  ...date/time: " (:date event)))
+<<<<<<< HEAD
       (println (str "  ...req: " (:req event)))
       (println (str "  ...entry: " (:entry event))))
+=======
+      (println (str "  ...entry: " (:entry event)))
+      (println (str "  ...req: " (:req event))))
+>>>>>>> dd913bbb5e878df3f9fe63e1d2fa4988d3fe7095
     (println "---")))
 
 (defn pp-reduced-log
