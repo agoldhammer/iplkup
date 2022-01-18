@@ -31,6 +31,15 @@
   (let [lines (read-log fname)]
     (mapv parse-line lines)))
 
+;; the reduced log is a map with ips as keys
+;; for each ip, the value is a vector of events
+;; supplemented eventually by two additional maps
+;; the first of these has key :geodata with value provided by geo lookup
+;; the second has key :hostname with value provided by reverse dns
+;; {ip-as-string {:events [vec of events]
+;;                :geodta {geomap} :hostname hostname}}
+;; each event is a map {:date date :req request :entry full-log-line}
+
 (defn log-reducer
   "transform raw log lines into maps of form {ip {parsed log data map}}"
   [acc log-line]
