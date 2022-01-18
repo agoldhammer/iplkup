@@ -45,13 +45,22 @@
     (a/go-loop [raw-response (a/<! raw-site-data-chan)]
                (when raw-response
                  (a/>! site-data-chan (resp->geodata raw-response))
-                 (recur (a/<! raw-site-data-chan))))
+                 (recur (a/<! raw-site-data-chan)))
+               (a/close! site-data-chan))
     site-data-chan))
+
+(defn ips->geochan
+  "take vector of ips, return channel with associated geodata"
+  [ips]
+  (let [raw-site-data-chan (ips->raw-site-data-chan ips)]
+    (raw-site-data-chan->site-data-chan raw-site-data-chan)))
 
 (comment
   (def raw-site-data-chan (ips->raw-site-data-chan ["8.8.8.8" "9.8.8.8"]))
   #_(a/take! raw-site-data-chan println)
   (def site-data-chan (raw-site-data-chan->site-data-chan raw-site-data-chan))
   (a/take! site-data-chan println)
+  (def geochan (ips->geochan ["8.8.8.8" "9.8.8.8"]))
+  (a/take! geochan prn)
 )
 

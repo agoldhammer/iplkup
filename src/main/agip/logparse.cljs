@@ -1,10 +1,13 @@
 (ns agip.logparse
   (:require #_["fs" :as fs]
             #_[cljs.reader :as reader]
+            [process :as pr]
+            [cljs.core.async :as a]
             [clojure.string :as s]
             [agip.dateparser :as dp]
             [agip.output :as out]
-            [agip.utils :as u]))
+            [agip.utils :as u]
+            [agip.ipgeo :as ipg]))
 
 
 
@@ -56,15 +59,64 @@
   [logfname]
   (reduce log-reducer {} (parse-log logfname)))
 
+(defn combine-geo
+  [item log]
+  (let [geodata (:geodata item)
+        ip (:ip geodata)
+        stripped-geo (dissoc geodata :ip)]
+    (println "combinegeo: " geodata)
+    (println "combineip: " ip)
+    (println "--")
+    (assoc-in log [ip :geodata] stripped-geo)))
+
+(defn augment-log-geo
+  "augment reduced log with geodata, result in channel"
+  [reduced-log]
+  (let [ips (keys reduced-log)
+        geochan (ipg/ips->geochan ips)
+        outchan (a/chan)]
+    #_(a/go-loop [item (a/<! geochan)]
+        (when item
+          (println "a-l-g: " item)
+          #_(tap> {:aug-smpl item})
+          (recur (a/<! geochan))))
+    (a/go-loop [item (a/<! geochan)
+                augmented-log reduced-log]
+      #_(tap> {:aug-item item})
+      (println {:aug-item item})
+      (if (nil? item)
+        (do
+          (println "exiting alg")
+          (a/put! outchan augmented-log #(println "alg done")))
+        (recur (a/<! geochan)
+               (combine-geo item augmented-log))))
+    outchan))
+
 #_:clj-kondo/ignore
 (defn -main
   [& args]
   (u/init-app)
+  (u/reset-debug)
+  (a/take! (augment-log-geo (reduce-log "testdata/small.log")) out/pp-log)
+  #_(println @u/debug-a)
+  (js/setTimeout #(pr/exit 0) 4500)
   )
 
 (comment
   u/config
+  (u/reset-debug)
   (parse-log "testdata/small.log")
   (reduce-log "testdata/small.log")
-  (out/pp-reduced-log (reduce-log "testdata/newer.log"))
+  (def small-reduced (reduce-log "testdata/small.log"))
+  (out/pp-log small-reduced)
+  (def res (augment-log-geo (reduce-log "testdata/small.log")))
+  res
+  (out/pp-log (augment-log-geo (reduce-log "testdata/small.log")))
+  @u/debug-a
+  (out/pp-log (reduce-log "testdata/newer.log"))
+
+  (def geo {:geodata {:country_code2 "US", :ip "54.245.183.198", :city "Durham", :longitude "-78.86284", :zipcode "27709", :country_name "United States", :country_code3 "USA", :latitude "35.90841", :state_prov "North Carolina", :district "Research Triangle Park"}}
+)
+  (println (get-in (combine-geo geo small-reduced) ["54.245.183.198" :geodata]))
+
   )
