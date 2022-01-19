@@ -9,7 +9,7 @@
 (pr/on "uncaughtException", (fn [err origin]
                               (println "Uncaught Exception" err origin)))
 
-(def print-chan (a/chan 256))
+(def output-chan (a/chan 256))
 (def done-chan (a/chan))
 
 #_(defn slurp [file]
@@ -40,7 +40,9 @@
                          "N/A"))
         zipped-ips-hosts (zipmap ips
                                  (into [] (map fix-hostname hostresolutions)))]
-    (a/put! print-chan zipped-ips-hosts #(println "sent zipped"))))
+    (a/put! output-chan zipped-ips-hosts #(println "sent zipped"))))
+
+
 
 (defn- make-host-channel
   "create and return channel to receive outcome of host lookups"
@@ -59,14 +61,15 @@
         (recur (a/<! host-chan))))
     host-chan))
 
-(defn process-ips
+#_(defn process-ips
   "do reverse dns lookups on vector of ips"
   [ips]
   #_(println "process ips called with" ips)
+  (dns/setServers #js ["8.8.8.8"])
   (let [out-ch (pipe-ips ips)
         host-chan (make-host-channel)]
     ;; print the vec of resolved [[ip1 "hostname1"] [ip2 "hostname2"] ... from the print channel]
-    (a/go (do (doseq [item (a/<! print-chan)]
+    (a/go (do (doseq [item (a/<! output-chan)]
                 (println "**" item))
               (a/put! done-chan :done)))
     ;; accumulate [:ip ip :promise prom] items from the out-ch of the ip pipeline
@@ -76,6 +79,25 @@
                 acc []]
       (if item
         (recur (a/<! out-ch) (into acc item))
+        (let [ips (mapv (comp first rest) (filter #(= :ip (get % 0)) acc))
+              proms (mapv (comp first rest) (filter #(= :promise (get % 0)) acc))
+              settled (js/Promise.allSettled proms)]
+          (a/>! host-chan [ips settled]))))))
+
+
+(defn ips->ouput-chan
+  "resolve vector of ips and put result on host-chan"
+  [ips]
+  (let [ip-ch (pipe-ips ips)
+        host-chan (make-host-channel)]
+    ;; accumulate [:ip ip :promise prom] items from the out-ch of the ip pipeline
+    ;; resolve the promises and restructure as [[ip1 ip2 ...] ["hostname1" "hostname2" ...]]
+    ;; send this to host-chan
+    (dns/setServers #js ["8.8.8.8"])
+    (a/go-loop [item (a/<! ip-ch)
+                acc []]
+      (if item
+        (recur (a/<! ip-ch) (into acc item))
         (let [ips (mapv (comp first rest) (filter #(= :ip (get % 0)) acc))
               proms (mapv (comp first rest) (filter #(= :promise (get % 0)) acc))
               settled (js/Promise.allSettled proms)]
@@ -100,14 +122,14 @@
   #_(pr/exit 0)
   #_(js/setTimeout #(pr/exit 0) 2500))
 
-(defn wait-for-done
+#_(defn wait-for-done
   "call fn f and wait until done signal received"
   [f & args]
   (apply f args)
   (a/take! done-chan #(println ":done sig rcvd")))
 
 (comment
-  (wait-for-done process-ips ["34.86.35.10" "52.41.81.117"])
+  #_(wait-for-done process-ips ["34.86.35.10" "52.41.81.117"])
   #_(-main "hi")
   #_(process-ips (take 5 (s/split-lines (slurp "ips.txt")))))
 

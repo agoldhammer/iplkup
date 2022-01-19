@@ -1,5 +1,5 @@
 (ns agip.logparse
-  (:require #_[process :as pr]
+  (:require [process :as pr]
             [cljs.core.async :as a]
             [clojure.string :as s]
             [agip.dateparser :as dp]
@@ -7,6 +7,9 @@
             [agip.utils :as u]
             [agip.rdns :as rdns]
             [agip.ipgeo :as ipg]))
+
+(pr/on "uncaughtException", (fn [err origin]
+                              (println "Uncaught Exception" err origin)))
 
 (defn read-log
   "read log file"
@@ -87,17 +90,35 @@
                (combine-geo item augmented-log))))
     outchan))
 
+(defn hostlookups
+  "lookup hostnames from ips in file"
+  [fname]
+  (let [ips (s/split-lines (u/slurp fname))]
+    ips))
+
 #_:clj-kondo/ignore
 (defn -main
   [& args]
+  (pr/on "exit" (fn [code] (js/console.log "exiting" code)))
   (u/init-app)
-  (u/reset-debug)
-  (a/take! (augment-log-geo (reduce-log (first args))) out/pp-log)
+  #_(u/reset-debug)
+  ;;; for combining geodata into reduced log
+  #_(a/take! (augment-log-geo (reduce-log (first args))) out/pp-log)
+
+  ;;; for testing hostlookups
+  #_(rdns/process-ips (hostlookups (first args)))
+  (rdns/ips->ouput-chan (hostlookups (first args)))
+  (a/go (do (doseq [item (a/<! rdns/output-chan)]
+              (println "**" item))
+            (a/put! rdns/done-chan :done)))
+  (a/take! rdns/done-chan #((do (println "lookups done")
+                                (pr/exit 0))))
   #_(println @u/debug-a)
   #_(js/setTimeout #(pr/exit 0) 4500)
   #_(pr/exit 0))
 
 (comment
+  (hostlookups "ips.txt")
   u/config
   (u/reset-debug)
   (parse-log "testdata/small.log")
@@ -109,5 +130,4 @@
   (a/take! (augment-log-geo (reduce-log "testdata/small.log")) out/pp-log)
   @u/debug-a
   (out/pp-log (reduce-log "testdata/newer.log"))
-  (rdns/process-ips ["8.8.8.8"])
   )
