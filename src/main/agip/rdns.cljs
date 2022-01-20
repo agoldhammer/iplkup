@@ -34,15 +34,15 @@
 (defn- zip-ips-to-hostnames
   "zipmap ips to resolved hostnames"
   [ips hostresolutions]
+  ;; the resolved hostname is a #js array
+  ;; must convert to cljs and take the first element
   (let [fix-hostname (fn [hostres]
                        (if (= hostres.status "fulfilled")
-                         hostres.value
-                         "N/A"))
+                         {:hostname (first (js->clj hostres.value))}
+                         {:hostname "N/A"}))
         zipped-ips-hosts (zipmap ips
                                  (into [] (map fix-hostname hostresolutions)))]
     (a/put! output-chan zipped-ips-hosts #(println "sent zipped"))))
-
-
 
 (defn- make-host-channel
   "create and return channel to receive outcome of host lookups"
@@ -61,31 +61,7 @@
         (recur (a/<! host-chan))))
     host-chan))
 
-#_(defn process-ips
-  "do reverse dns lookups on vector of ips"
-  [ips]
-  #_(println "process ips called with" ips)
-  (dns/setServers #js ["8.8.8.8"])
-  (let [out-ch (pipe-ips ips)
-        host-chan (make-host-channel)]
-    ;; print the vec of resolved [[ip1 "hostname1"] [ip2 "hostname2"] ... from the print channel]
-    (a/go (do (doseq [item (a/<! output-chan)]
-                (println "**" item))
-              (a/put! done-chan :done)))
-    ;; accumulate [:ip ip :promise prom] items from the out-ch of the ip pipeline
-    ;; resolve the promises and restructure as [[ip1 ip2 ...] ["hostname1" "hostname2" ...]]
-    ;; send this to host-chan
-    (a/go-loop [item (a/<! out-ch)
-                acc []]
-      (if item
-        (recur (a/<! out-ch) (into acc item))
-        (let [ips (mapv (comp first rest) (filter #(= :ip (get % 0)) acc))
-              proms (mapv (comp first rest) (filter #(= :promise (get % 0)) acc))
-              settled (js/Promise.allSettled proms)]
-          (a/>! host-chan [ips settled]))))))
-
-
-(defn ips->ouput-chan
+(defn ips->output-chan
   "resolve vector of ips and put result on host-chan"
   [ips]
   (let [ip-ch (pipe-ips ips)
@@ -110,29 +86,6 @@
     (println "processing file" fname "with" (count ips) "ips")
     (process-ips ips)))
 
-(defn -main2
-  [& args]
-  (pr/on "exit" (fn [code] (js/console.log "exiting" code)))
-  (dns/setServers #js ["8.8.8.8"])
-;; use Google name server; otherwise super slow on WSL2
-  (println "Welcome" args)
-  #_(process-file "ips.txt")
-  (a/take! done-chan #((do (println "lookups done")
-                           (pr/exit 0))))
-  #_(pr/exit 0)
-  #_(js/setTimeout #(pr/exit 0) 2500))
-
-#_(defn wait-for-done
-  "call fn f and wait until done signal received"
-  [f & args]
-  (apply f args)
-  (a/take! done-chan #(println ":done sig rcvd")))
-
-(comment
-  #_(wait-for-done process-ips ["34.86.35.10" "52.41.81.117"])
-  #_(-main "hi")
-  #_(process-ips (take 5 (s/split-lines (slurp "ips.txt")))))
-
 ;; from David Nolen gist
 (defn timeout [ms]
   (let [c (a/chan)]
@@ -140,9 +93,9 @@
     c))
 
 (comment
-  (-main2 "Art")
   (js/setTimeout #(println "Blimey") 12)
   (apply hash-map (concat [:a 1] [:b 2] [:c 3]))
+  (into {} [[:a 1] [:b 2]])
   (a/go
     (a/<! (timeout 1000))
     (println "Hello")

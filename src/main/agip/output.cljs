@@ -6,7 +6,7 @@
   [ip data]
   (let [{:keys [events hostname geodata]} data]
     (println (str "ip: " ip))
-    (println "hostname" hostname)
+    (println "hostname:" hostname)
     (println "geodata: " geodata)
     (doseq [event events]
       (println "  **")

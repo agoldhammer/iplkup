@@ -64,9 +64,6 @@
   (let [geodata (:geodata item)
         ip (:ip geodata)
         stripped-geo (dissoc geodata :ip)]
-    #_(println "combinegeo: " geodata)
-    #_(println "combineip: " ip)
-    #_(println "--")
     (assoc-in log [ip :geodata] stripped-geo)))
 
 (defn augment-log-geo
@@ -75,50 +72,52 @@
   (let [ips (keys reduced-log)
         geochan (ipg/ips->geochan ips)
         outchan (a/chan)]
-    #_(a/go-loop [item (a/<! geochan)]
-        (when item
-          (println "a-l-g: " item)
-          #_(tap> {:aug-smpl item})
-          (recur (a/<! geochan))))
     (a/go-loop [item (a/<! geochan)
                 augmented-log reduced-log]
-      #_(tap> {:aug-item item})
-      #_(println {:aug-item item})
       (if (nil? item)
         (a/put! outchan augmented-log #(println "alg done"))
         (recur (a/<! geochan)
                (combine-geo item augmented-log))))
     outchan))
 
-(defn hostlookups
-  "lookup hostnames from ips in file"
-  [fname]
-  (let [ips (s/split-lines (u/slurp fname))]
-    ips))
+(defn reduce-with-hostnames
+  "fold zipmap of [ip {:hostname hostanme}] into log"
+  [log zipmapped]
+  (out/pp-log (reduce-kv #(assoc-in  %1 [%2 :hostname]
+                                     (:hostname %3)) log zipmapped))
+  (a/put! rdns/done-chan :done))
+
+(defn augment-log-hostnames
+  "augment reduced log with hostnames, result in channel"
+  [log]
+  (let [ips (keys log)]
+    (rdns/ips->output-chan ips))
+  (a/go (a/take! rdns/output-chan #(reduce-with-hostnames log %)))
+  (a/take! rdns/done-chan #(println "lookups done")))
 
 #_:clj-kondo/ignore
 (defn -main
   [& args]
   (pr/on "exit" (fn [code] (js/console.log "exiting" code)))
   (u/init-app)
+  (augment-log-hostnames (reduce-log "testdata/small.log"))
   #_(u/reset-debug)
   ;;; for combining geodata into reduced log
   #_(a/take! (augment-log-geo (reduce-log (first args))) out/pp-log)
 
   ;;; for testing hostlookups
   #_(rdns/process-ips (hostlookups (first args)))
-  (rdns/ips->ouput-chan (hostlookups (first args)))
-  (a/go (do (doseq [item (a/<! rdns/output-chan)]
+  #_(rdns/ips->ouput-chan (hostlookups (first args)))
+  #_(a/go (do (doseq [item (a/<! rdns/output-chan)]
               (println "**" item))
             (a/put! rdns/done-chan :done)))
-  (a/take! rdns/done-chan #((do (println "lookups done")
+  #_(a/take! rdns/done-chan #((do (println "lookups done")
                                 (pr/exit 0))))
   #_(println @u/debug-a)
   #_(js/setTimeout #(pr/exit 0) 4500)
   #_(pr/exit 0))
 
 (comment
-  (hostlookups "ips.txt")
   u/config
   (u/reset-debug)
   (parse-log "testdata/small.log")
@@ -130,4 +129,10 @@
   (a/take! (augment-log-geo (reduce-log "testdata/small.log")) out/pp-log)
   @u/debug-a
   (out/pp-log (reduce-log "testdata/newer.log"))
+  (assoc-in {:ip {:events "event"}} [:ip :hostname] "name")
+  (def ll {"art" {:events 1 :hostname nil} "joe" {:events 2 :hostname nil}})
+  (merge ll {"art" {:hostname "a"} "joe" {:hostname "j"}})
+  (assoc-in ll ["art" :hostname] "a")
+  (reduce-kv #(assoc-in %1 [%2 :hostname]
+                        (:hostname %3)) ll {"art" {:hostname "a"} "joe" {:hostname "j"}})
   )
