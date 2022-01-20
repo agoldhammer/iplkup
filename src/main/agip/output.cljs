@@ -1,13 +1,27 @@
-(ns agip.output)
+(ns agip.output
+  (:require ["cli-color" :as col]))
+
+(defn- geodata->strings
+  "convert site data to a vector of strings"
+  [data]
+  (let [{:keys [country_code2 country_name city state_prov
+                district latitude longitude]} data
+        line1 (col/cyan (str "  " country_name " (" country_code2 ")"))
+        line2 (col/cyan (str "  " city ", " state_prov (when (not= "" district) (str " district: " district))))
+        line3 (col/cyan (str "  lat-lon: " latitude ", " longitude))]
+    [line1 line2 line3]))
 
 (defn pp-log-entry
   "pretty print the reduced log entry
    destructured as ip and data"
   [ip data]
-  (let [{:keys [events hostname geodata]} data]
-    (println (str "ip: " ip))
-    (println "hostname:" hostname)
-    (println "geodata: " geodata)
+  (let [{:keys [events hostname geodata]} data
+        geo-lines (geodata->strings geodata)]
+    (println (col/green (str "ip: " ip)))
+    (println (col/yellow (str "hostname:" hostname)))
+    (println (col/red "geodata:"))
+    (doseq [line geo-lines]
+      (println line))
     (doseq [event events]
       (println "  **")
       (println (str "  ...date/time: " (:date event)))

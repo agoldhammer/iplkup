@@ -95,44 +95,21 @@
   (a/go (a/take! rdns/output-chan #(reduce-with-hostnames log %)))
   (a/take! rdns/done-chan #(println "lookups done")))
 
+(defn augment-log
+  "read log file, reduce log, and augment with both geodata and hostnames"
+  [fname]
+  (let [reduced-log (reduce-log fname)
+        geochan (augment-log-geo reduced-log)]
+    (a/take! geochan augment-log-hostnames)))
+
 #_:clj-kondo/ignore
 (defn -main
   [& args]
   (pr/on "exit" (fn [code] (js/console.log "exiting" code)))
   (u/init-app)
-  (augment-log-hostnames (reduce-log "testdata/small.log"))
-  #_(u/reset-debug)
-  ;;; for combining geodata into reduced log
-  #_(a/take! (augment-log-geo (reduce-log (first args))) out/pp-log)
-
-  ;;; for testing hostlookups
-  #_(rdns/process-ips (hostlookups (first args)))
-  #_(rdns/ips->ouput-chan (hostlookups (first args)))
-  #_(a/go (do (doseq [item (a/<! rdns/output-chan)]
-              (println "**" item))
-            (a/put! rdns/done-chan :done)))
+  (augment-log (first args))
+  
   #_(a/take! rdns/done-chan #((do (println "lookups done")
                                 (pr/exit 0))))
-  #_(println @u/debug-a)
-  #_(js/setTimeout #(pr/exit 0) 4500)
-  #_(pr/exit 0))
-
-(comment
-  u/config
-  (u/reset-debug)
-  (parse-log "testdata/small.log")
-  (reduce-log "testdata/small.log")
-  (def small-reduced (reduce-log "testdata/small.log"))
-  (out/pp-log small-reduced)
-  (def res (augment-log-geo (reduce-log "testdata/small.log")))
-  res
-  (a/take! (augment-log-geo (reduce-log "testdata/small.log")) out/pp-log)
-  @u/debug-a
-  (out/pp-log (reduce-log "testdata/newer.log"))
-  (assoc-in {:ip {:events "event"}} [:ip :hostname] "name")
-  (def ll {"art" {:events 1 :hostname nil} "joe" {:events 2 :hostname nil}})
-  (merge ll {"art" {:hostname "a"} "joe" {:hostname "j"}})
-  (assoc-in ll ["art" :hostname] "a")
-  (reduce-kv #(assoc-in %1 [%2 :hostname]
-                        (:hostname %3)) ll {"art" {:hostname "a"} "joe" {:hostname "j"}})
   )
+
