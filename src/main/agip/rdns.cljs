@@ -1,6 +1,7 @@
 (ns agip.rdns
   (:require [clojure.core.async :as a]
-            ["dns" :as dns]))
+            ["dns" :as dns]
+            [agip.utils :as u]))
 
 (def output-chan (a/chan 256))
 
@@ -57,7 +58,7 @@
     ;; accumulate [:ip ip :promise prom] items from the out-ch of the ip pipeline
     ;; resolve the promises and restructure as [[ip1 ip2 ...] ["hostname1" "hostname2" ...]]
     ;; send this to host-chan
-    (dns/setServers #js ["8.8.8.8"])
+    (dns/setServers (u/get-nameservers))
     (a/go-loop [item (a/<! ip-ch)
                 acc []]
       (if item

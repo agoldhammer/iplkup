@@ -14,9 +14,8 @@
 (defn get-site-data
   "fetch site data for ip, place in supplied channel"
   [ip outch]
-  {:pre [(not (nil? (:geo-api-key u/config)))]}
   (let [base-url "https://api.ipgeolocation.io/ipgeo"
-        url (str base-url "?apiKey=" (:geo-api-key u/config) "&ip=" ip "&fields=geo")]
+        url (str base-url "?apiKey=" (u/get-geo-api-key) "&ip=" ip "&fields=geo")]
     (http/get url {:channel outch})))
 
 (defn resp->geodata
