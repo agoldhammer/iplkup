@@ -45,7 +45,7 @@
            settled
            (.then #(zip-ips-to-hostnames ips %))
            (.catch #(js/console.log "error"))
-           (.finally #(println :finis))))
+           #_(.finally #(println :finis))))
 
         (recur (a/<! host-chan))))
     host-chan))

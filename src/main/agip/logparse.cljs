@@ -75,7 +75,7 @@
     (a/go-loop [item (a/<! geochan)
                 augmented-log reduced-log]
       (if (nil? item)
-        (a/put! outchan augmented-log #(println "alg done"))
+        (a/>! outchan augmented-log)
         (recur (a/<! geochan)
                (combine-geo item augmented-log))))
     outchan))
@@ -106,6 +106,7 @@
 (defn -main
   [& args]
   (pr/on "exit" (fn [code] (js/console.log "exiting" code)))
+  (println "logrdr reading log file")
   (u/init-app)
   (augment-log (first args))
   
