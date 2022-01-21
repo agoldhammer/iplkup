@@ -1,20 +1,9 @@
 (ns agip.rdns
-  (:require #_["fs" :as fs]
-            ["dns" :as dns]
-            [process :as pr]
-            [clojure.core.async :as a]
-            #_[cljs.core.async.interop :refer-macros [<p!]]
-            #_[clojure.string :as s]))
-
-(pr/on "uncaughtException", (fn [err origin]
-                              (println "Uncaught Exception" err origin)))
+  (:require [clojure.core.async :as a]
+            ["dns" :as dns]))
 
 (def output-chan (a/chan 256))
 (def done-chan (a/chan))
-
-#_(defn slurp [file]
-  (-> (fs/readFileSync file)
-      (.toString)))
 
 (defn- async-process-ip
   "pipeline function to revese lkup ip"
@@ -42,7 +31,7 @@
                          {:hostname "N/A"}))
         zipped-ips-hosts (zipmap ips
                                  (into [] (map fix-hostname hostresolutions)))]
-    (a/put! output-chan zipped-ips-hosts #(println "sent zipped"))))
+    (a/put! output-chan zipped-ips-hosts #(println "hostnames resolved"))))
 
 (defn- make-host-channel
   "create and return channel to receive outcome of host lookups"
@@ -51,7 +40,7 @@
     (a/go-loop [item (a/<! host-chan)]
       (when item
         (let [[ips settled] item]
-          (println  "host-chan count" (count ips))
+          #_(println  "host-chan count" (count ips))
           (->
            settled
            (.then #(zip-ips-to-hostnames ips %))
@@ -79,30 +68,6 @@
               settled (js/Promise.allSettled proms)]
           (a/>! host-chan [ips settled]))))))
 
-#_(defn process-file
-  "do reverse dns lookups on a file of ips"
-  [fname]
-  (let [ips (s/split-lines (slurp fname))]
-    (println "processing file" fname "with" (count ips) "ips")
-    (process-ips ips)))
-
-;; from David Nolen gist
-(defn timeout [ms]
-  (let [c (a/chan)]
-    (js/setTimeout (fn [] (a/close! c)) ms)
-    c))
-
-(comment
-  (js/setTimeout #(println "Blimey") 12)
-  (apply hash-map (concat [:a 1] [:b 2] [:c 3]))
-  (into {} [[:a 1] [:b 2]])
-  (a/go
-    (a/<! (timeout 1000))
-    (println "Hello")
-    (a/<! (timeout 1000))
-    (println "async")
-    (a/<! (timeout 1000))
-    (println "world!")))
 
 
 

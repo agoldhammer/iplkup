@@ -109,7 +109,6 @@
   (u/init-app)
   (augment-log (first args))
   
-  #_(a/take! rdns/done-chan #((do (println "lookups done")
-                                (pr/exit 0))))
+  (a/take! rdns/done-chan #(println "logrdr done"))
   )
 

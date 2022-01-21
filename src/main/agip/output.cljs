@@ -18,7 +18,7 @@
   (let [{:keys [events hostname geodata]} data
         geo-lines (geodata->strings geodata)]
     (println (col/green (str "ip: " ip)))
-    (println (col/yellow (str "hostname:" hostname)))
+    (println (col/yellow (str "hostname: " hostname)))
     (println (col/red "geodata:"))
     (doseq [line geo-lines]
       (println line))
