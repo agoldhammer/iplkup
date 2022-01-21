@@ -38,7 +38,7 @@
       (if (nil? lines)
         (throw (js/Error. "log is empty"))
         (mapv parse-line lines)))
-    (catch :default e (throw (js/Error. "no input")))))
+    (catch :default _ (throw (js/Error. "no input")))))
 
 ;; the reduced log is a map with ips as keys
 ;; for each ip, the value is a vector of events
