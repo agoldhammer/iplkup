@@ -11,13 +11,13 @@
 (pr/on "uncaughtException", (fn [err origin]
                               (println "Uncaught Exception" err origin)))
 
-(defn read-log
+(defn- read-log
   "read log file"
   [fname]
   (-> (u/slurp fname)
       (s/split-lines)))
 
-(defn parse-line
+(defn- parse-line
   "parse line of log, returns basic log entry
    w/o augmented data"
   [line]
@@ -28,7 +28,7 @@
      :date (dp/datestr->zulu (parsed 2))
      :req (parsed 3)}))
 
-(defn parse-log
+(defn- parse-log
   "parse log file fname"
   [fname]
   (let [lines (read-log fname)]
@@ -43,7 +43,7 @@
 ;;                :geodta {geomap} :hostname hostname}}
 ;; each event is a map {:date date :req request :entry full-log-line}
 
-(defn log-reducer
+(defn- log-reducer
   "transform raw log lines into maps of form {ip {parsed log data map}}"
   [acc log-line]
   (let [ip (:ip log-line)
@@ -54,19 +54,19 @@
       ;; this ip is not yet in reduced log, so make a new entry
       (assoc acc ip {:events [stripped-ll]}))))
 
-(defn reduce-log
+(defn- reduce-log
   "convert logfile from ip to vector of events"
   [logfname]
   (reduce log-reducer {} (parse-log logfname)))
 
-(defn combine-geo
+(defn- combine-geo
   [item log]
   (let [geodata (:geodata item)
         ip (:ip geodata)
         stripped-geo (dissoc geodata :ip)]
     (assoc-in log [ip :geodata] stripped-geo)))
 
-(defn augment-log-geo
+(defn- augment-log-geo
   "augment reduced log with geodata, result in channel"
   [reduced-log]
   (let [ips (keys reduced-log)
@@ -80,14 +80,14 @@
                (combine-geo item augmented-log))))
     outchan))
 
-(defn reduce-with-hostnames
+(defn- reduce-with-hostnames
   "fold zipmap of [ip {:hostname hostanme}] into log"
   [log zipmapped]
   (out/pp-log (reduce-kv #(assoc-in  %1 [%2 :hostname]
                                      (:hostname %3)) log zipmapped))
   (a/put! rdns/done-chan :done))
 
-(defn augment-log-hostnames
+(defn- augment-log-hostnames
   "augment reduced log with hostnames, result in channel"
   [log]
   (let [ips (keys log)]
@@ -95,21 +95,20 @@
   (a/go (a/take! rdns/output-chan #(reduce-with-hostnames log %)))
   (a/take! rdns/done-chan #(println "lookups done")))
 
-(defn augment-log
+(defn- augment-log
   "read log file, reduce log, and augment with both geodata and hostnames"
   [fname]
   (let [reduced-log (reduce-log fname)
         geochan (augment-log-geo reduced-log)]
     (a/take! geochan augment-log-hostnames)))
 
-#_:clj-kondo/ignore
 (defn -main
   [& args]
   (pr/on "exit" (fn [code] (js/console.log "exiting" code)))
   (println "logrdr reading log file")
-  (u/init-app)
-  (augment-log (first args))
-  
-  (a/take! rdns/done-chan #(println "logrdr done"))
-  )
+  (try
+    (u/init-app)
+    (augment-log (first args))
+    (a/take! rdns/done-chan #(println "logrdr done"))
+    (catch js/Error e e)))
 
