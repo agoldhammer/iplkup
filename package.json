@@ -2,6 +2,9 @@
   "name": "iplkup",
   "version": "0.0.1",
   "private": true,
+  "bin": {
+      "logrdr": "./out/script/logrdr.js"
+  },
   "devDependencies": {
     "shadow-cljs": "2.16.12",
     "source-map-support": "^0.5.21"
