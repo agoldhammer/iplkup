@@ -3,7 +3,6 @@
             ["dns" :as dns]))
 
 (def output-chan (a/chan 256))
-(def done-chan (a/chan))
 
 (defn- async-process-ip
   "pipeline function to revese lkup ip"

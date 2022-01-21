@@ -11,6 +11,8 @@
 (pr/on "uncaughtException", (fn [err origin]
                               (println "Uncaught Exception" err origin)))
 
+(def done-chan (a/chan))
+
 (defn- read-log
   "read log file"
   [fname]
@@ -28,11 +30,15 @@
      :date (dp/datestr->zulu (parsed 2))
      :req (parsed 3)}))
 
-(defn- parse-log
+(defn parse-log
   "parse log file fname"
   [fname]
-  (let [lines (read-log fname)]
-    (mapv parse-line lines)))
+  (try
+    (let [lines (read-log fname)]
+      (if (nil? lines)
+        (throw (js/Error. "log is empty"))
+        (mapv parse-line lines)))
+    (catch :default e (throw (js/Error. "no input")))))
 
 ;; the reduced log is a map with ips as keys
 ;; for each ip, the value is a vector of events
@@ -85,7 +91,7 @@
   [log zipmapped]
   (out/pp-log (reduce-kv #(assoc-in  %1 [%2 :hostname]
                                      (:hostname %3)) log zipmapped))
-  (a/put! rdns/done-chan :done))
+  (a/put! done-chan :done))
 
 (defn- augment-log-hostnames
   "augment reduced log with hostnames, result in channel"
@@ -93,7 +99,7 @@
   (let [ips (keys log)]
     (rdns/ips->output-chan ips))
   (a/go (a/take! rdns/output-chan #(reduce-with-hostnames log %)))
-  (a/take! rdns/done-chan #(println "lookups done")))
+  (a/take! done-chan #(println "lookups done")))
 
 (defn- augment-log
   "read log file, reduce log, and augment with both geodata and hostnames"
@@ -106,9 +112,18 @@
   [& args]
   (pr/on "exit" (fn [code] (js/console.log "exiting" code)))
   (println "logrdr reading log file")
-  (try
-    (u/init-app)
-    (augment-log (first args))
-    (a/take! rdns/done-chan #(println "logrdr done"))
-    (catch js/Error e e)))
+  ;; usage: if file name specified on command line, read it
+  ;; otherwise read from stdin
+  (let [fname (cond
+                (nil? (first args)) "/dev/stdin"
+                :else (first args))]
+    (try
+      (u/init-app)
+      (augment-log fname)
+      (a/take! done-chan #(println "logrdr done"))
+      (catch js/Error e (println "Error:" (ex-message e))))))
+
+(comment
+  (-main "testdata/small.log"))
+
 
