@@ -1,0 +1,13 @@
+#! /bin/bash
+echo "Checking root log"
+logrdr <(ssh nz cat /var/log/nginx/access.log)
+
+for PREFIX in eu us wx
+do
+    echo ">"
+    echo ">>>>>>>>>>Checking ${PREFIX}1.access.log"
+    echo ">"
+    logrdr <(ssh nz cat /var/log/nginx/${PREFIX}1.access.log)
+done
+
+
