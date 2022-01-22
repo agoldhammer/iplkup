@@ -23,13 +23,17 @@
   "parse line of log, returns basic log entry
    w/o augmented data"
   [line]
-  (let [parse-re #"(\S+).+?[\[](\S+).+?\"(.+?)\""
+  (let [parse-re #"(\S+).+?[\[](\S+).+?\"(.+?)\"(.*)"
         parsed (re-find parse-re line)]
     {#_#_:entry (parsed 0)
-     :entry line
+     :entry (parsed 4)
      :ip (parsed 1)
      :date (dp/datestr->zulu (parsed 2))
      :req (parsed 3)}))
+
+(comment
+  (def line "54.245.183.198 - - [26/Feb/2021:01:24:07 +0000] \"GET / HTTP/1.1\" 200 396 \"-\" \"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.97 Safari/537.36\"")
+  (parse-line line))
 
 (defn parse-log
   "parse log file fname"
