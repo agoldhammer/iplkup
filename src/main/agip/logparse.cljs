@@ -25,7 +25,8 @@
   [line]
   (let [parse-re #"(\S+).+?[\[](\S+).+?\"(.+?)\""
         parsed (re-find parse-re line)]
-    {:entry (parsed 0)
+    {#_#_:entry (parsed 0)
+     :entry line
      :ip (parsed 1)
      :date (dp/datestr->zulu (parsed 2))
      :req (parsed 3)}))
@@ -111,7 +112,7 @@
 (defn -main
   [& args]
   (pr/on "exit" (fn [code] (js/console.log "exiting" code)))
-  (println "logrdr reading log file")
+  (println "logrdr 0.0.1 reading log file")
   ;; usage: if file name specified on command line, read it
   ;; otherwise read from stdin
   (let [fname (cond

@@ -26,7 +26,11 @@
       (println "  **")
       (println (str "  ...date/time: " (:date event)))
       (println (str "  ...req: " (:req event)))
-      (println (str "  ...entry: " (:entry event))))
+      ;; retain only 75 chars of long events
+      (let [full-entry (:entry event)
+            cnt (count full-entry)
+            trunc-entry (subs full-entry 0 (min cnt 90))]
+        (println (str "  ...entry: " trunc-entry))))
     (println (apply str (repeat 80 "-")))))
 
 (defn pp-log
