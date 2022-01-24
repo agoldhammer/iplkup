@@ -1,15 +1,22 @@
 (ns agip.output
   (:require ["cli-color" :as col]))
 
+(defn- not-blank?
+  "true if string is not blank"
+  [s]
+  (not= s ""))
+
 (defn- geodata->strings
   "convert site data to a vector of strings"
   [data]
   (let [{:keys [country_code2 country_name city state_prov
                 district latitude longitude]} data
         line1 (col/cyan (str "  " country_name " (" country_code2 ")"))
-        line2 (col/cyan (str "  " (when (not= "" city) (str city ", "))
+        line2 (col/cyan (str "  " (when (not-blank? city) city)
+                             (when (and (not-blank? city)
+                                        (not-blank? state_prov)) ", ")
                              state_prov
-                             (when (not= "" district)
+                             (when (not-blank? district)
                                (col/magenta (str " (district: " district ")")))))
         line3 (col/cyan (str "  lat-lon: " latitude ", " longitude))]
     [line1 line2 line3]))
