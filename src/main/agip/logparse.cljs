@@ -71,11 +71,13 @@
   (reduce log-reducer {} (parse-log logfname)))
 
 (defn- combine-geo
+  "fold in geodata from response `item` if not nil"
   [item log]
-  (let [geodata (:geodata item)
-        ip (:ip geodata)
-        stripped-geo (dissoc geodata :ip)]
-    (assoc-in log [ip :geodata] stripped-geo)))
+  (when item
+    (let [geodata (:geodata item)
+          ip (:ip geodata)
+          stripped-geo (dissoc geodata :ip)]
+      (assoc-in log [ip :geodata] stripped-geo))))
 
 (defn- augment-log-geo
   "augment reduced log with geodata, result in channel"

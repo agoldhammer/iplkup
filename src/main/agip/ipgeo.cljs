@@ -24,7 +24,7 @@
   #_(tap> (str "r->g" resp))
   (if (= (:status resp) 200)
     {:geodata (:body resp)}
-    {:geodata "N/A"}))
+    {:geodata nil}))
 
 (defn ips->raw-site-data-chan
   "pipeline a vector of ips to a channel containing a vector of site-data;
