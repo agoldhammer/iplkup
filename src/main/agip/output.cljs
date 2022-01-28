@@ -19,7 +19,9 @@
                              (when (not-blank? district)
                                (col/magenta (str " (district: " district ")")))))
         line3 (col/cyan (str "  lat-lon: " latitude ", " longitude))]
-    [line1 line2 line3]))
+    (if (nil? data)
+      [(col/red "No geodata available") "" ""]
+      [line1 line2 line3])))
 
 (defn- pp-log-entry
   "pretty print the reduced log entry
